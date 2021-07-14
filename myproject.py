@@ -43,9 +43,7 @@ def start():
 
     :return:
     """
-    #ToDo-Done
     treat = str(request.args.get('treat', "T1"))
-    # treat = 'T1'
     user = str(uuid.uuid4())
     USERS[user] = dict()
 
@@ -62,6 +60,7 @@ def start():
 
     return user
 
+
 def compute_rmse(first_dict:dict,second_dict:dict):
     first_list = list()
     second_list = list()
@@ -73,6 +72,7 @@ def compute_rmse(first_dict:dict,second_dict:dict):
     rmse = mean_squared_error(first_list,second_list,squared=False)
 
     return rmse
+
 
 @app.route('/out')
 def out():
@@ -115,7 +115,6 @@ def storechoice():
     elif phase == 'two':
         USERS[user]['user_choice_2'][image_id] = user_choice
 
-    #ToDo- save choices to database-done
     db = Database(config)
 
     db.store_data("""INSERT INTO chicagofaces.player_decisions(datetime, user, treatment, phase, image_id, choice, reactiontime,reco)
@@ -135,14 +134,15 @@ def nextid():
     user = str(request.args.get('user_id'))
 
     phase_var = "two" if phase == "att1" or phase == "att2" else phase
-    seq = USERS.get(user, dict()).get(phase_var)
-    new_id = random.choice(seq)
+    seq = USERS.get(user, dict()).get(phase_var).pop(0)
 
-    if phase == 'one' or phase == 'two':
-        seq.remove(new_id)
-        USERS[user][phase] = seq
+    # new_id = random.choice(seq)
+    #
+    # if phase == 'one' or phase == 'two':
+    #     seq.remove(new_id)
+    #     USERS[user][phase] = seq
 
-    return str(new_id)
+    return str(seq)
 
 
 @app.route('/api/getfico', methods=['GET'])
@@ -232,7 +232,10 @@ def send_image(user_id, filename):
 
 @app.route('/api/runmodel', methods=['GET'])
 def runmodel():
-    #ToDo-Done
+    """
+
+    :return:
+    """
     user = str(request.args.get('user_id'))
     treat = str(request.args.get('treat', "T1"))
 
@@ -284,6 +287,5 @@ def getreco():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # ToDo - done
     app.run(host='0.0.0.0', debug=True, threaded=True)
 

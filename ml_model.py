@@ -253,12 +253,8 @@ class ModelRun:
     def rec(self, user):
         model = self.load_model('rf_regs/' + user + '.pkl')
         self.dataset = self.pre_process_for_rec()
-        # X = new_data.iloc[0:len(ds)]
-        # x = self.dataset.loc[self.dataset['TreatID'].isin(treat_id)]
-        # x = data
         x = self.remove_feats_for_reg_in(self.dataset)
         x = x.astype(float)
-        # x['prediction'] = model.predict(x[x.columns.difference(["Treatment","TreatID"],sort=False)])
         self.dataset['prediction'] = model.predict(x)
         recommendation = pd.Series(self.dataset.prediction.values, index=self.dataset.TreatID).to_dict()
 
