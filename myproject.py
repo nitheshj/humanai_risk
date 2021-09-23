@@ -5,15 +5,14 @@ This script contains the functions necessary for the complex operations that can
 @project: Tier-1 Human AI Collaboration
 
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 # import jwt
 import pandas as pd
 # import numpy as np
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, session
+from flask_session import Session
 from sklearn.metrics import mean_squared_error
-# from flask import session
-# from flask_session import Session
 from database import Database
 import configparser
 # import math
@@ -22,19 +21,34 @@ import os
 from flask_cors import CORS
 from ml_model import ModelRun
 # import pickle
+import shutil
 
 PATH = os.path.join(os.path.abspath('..'), 'Tier1/client/')
-
+SESSION_TYPE = 'filesystem'
+SESSION_PERMANENT = False  # Session cookie will expire when browser is closed
 app = Flask(__name__, static_url_path="", static_folder=PATH)
 app.secret_key = 'human_ai'
 app.config.from_object(__name__)
+
 CORS(app, resources={r"/*": {"origins": "https://studycrafter.com"}}, supports_credentials=True,
      allow_headers=["Content-Type", "Origin", "X-Requested-With", "Accept", "x-auth"])
+Session(app)
 
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8-sig')
 
-USERS = dict()
+# session = dict()
+
+@app.after_request
+def after_request(response):
+   """ after_request """
+   response.headers.add('Access-Control-Allow-Origin','https://studycrafter.com')
+   response.headers.add('Access-Control-Allow-Credentials', 'true')
+   response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+   response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+   response.headers.add('Set-Cookie', 'session={}; Expires={}; SameSite=None; Secure; HttpOnly; Path=/'.format(session.sid, datetime.now()+timedelta(days=1)))
+
+   return response
 
 
 @app.route('/set')
@@ -45,18 +59,18 @@ def start():
     """
     treat = str(request.args.get('treat', "T1"))
     user = str(uuid.uuid4())
-    USERS[user] = dict()
+    session[user] = dict()
 
     treatment = {'T1': 199, 'T2': 202, 'C': 196}
 
     # T1 =199, T2 = 202, C = 196
-    USERS[user]['one'] = random.sample(range(1, treatment[treat]+1), treatment[treat])
-    USERS[user]['att1'] = [570, 539, 617, 653, 684, 725, 749, 771, 806, 812]
-    USERS[user]['att2'] = [575, 534, 602, 663, 691, 729, 769, 777, 811, 823]
-    USERS[user]['user_choice'] = [0] * treatment[treat]
-    USERS[user]['two'] = random.sample(range(1, treatment['C']+1), 50)
-    USERS[user]['user_choice_2'] = dict()
-    USERS[user]['reco_actual'] = dict()
+    session[user]['one'] = random.sample(range(1, treatment[treat] + 1), treatment[treat])
+    session[user]['att1'] = [570, 539, 617, 653, 684, 725, 749, 771, 806, 812]
+    session[user]['att2'] = [575, 534, 602, 663, 691, 729, 769, 777, 811, 823]
+    session[user]['user_choice'] = [0] * treatment[treat]
+    session[user]['two'] = random.sample(range(1, treatment['C'] + 1), 54)
+    session[user]['user_choice_2'] = dict()
+    session[user]['reco_actual'] = dict()
 
     return user
 
@@ -78,9 +92,9 @@ def compute_rmse(first_dict:dict,second_dict:dict):
 def out():
     user = str(request.args.get('user_id'))
 
-    test_ideal_rmse = float(compute_rmse(USERS[user]['user_choice_2'],USERS[user]['recommendations']))
-    test_actual_rmse = float(compute_rmse(USERS[user]['user_choice_2'],USERS[user]['reco_actual']))
-    train_rmse = float(USERS[user]['train_rmse'])
+    test_ideal_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['recommendations']))
+    test_actual_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['reco_actual']))
+    train_rmse = float(session[user]['train_rmse'])
 
     db = Database(config)
 
@@ -88,7 +102,7 @@ def out():
                             VALUES (%s,%s,%s,%s);""",
                   (user, train_rmse, test_actual_rmse, test_ideal_rmse,))
 
-    item = USERS.pop(user, "User Don't exist")
+    item = session.pop(user, "User Don't exist")
 
     item = "User Popped" if isinstance(item, dict) else item
 
@@ -111,9 +125,9 @@ def storechoice():
     timenow = datetime.now()
 
     if phase == 'one':
-        USERS[user]['user_choice'][image_id-1] = user_choice
+        session[user]['user_choice'][image_id - 1] = user_choice
     elif phase == 'two':
-        USERS[user]['user_choice_2'][image_id] = user_choice
+        session[user]['user_choice_2'][image_id] = user_choice
 
     db = Database(config)
 
@@ -134,7 +148,7 @@ def nextid():
     user = str(request.args.get('user_id'))
 
     phase_var = "two" if phase == "att1" or phase == "att2" else phase
-    seq = USERS.get(user, dict()).get(phase_var).pop(0)
+    seq = session.get(user, dict()).get(phase_var).pop(0)
 
     # new_id = random.choice(seq)
     #
@@ -154,12 +168,12 @@ def getfico():
     phase = str(request.args.get('phase'))
     user = str(request.args.get('user_id'))
 
-    att_seq = USERS.get(user, dict()).get(phase)
+    att_seq = session.get(user, dict()).get(phase)
     fico = random.choice(att_seq)
 
     if phase == "att1" or phase == "att2":
         att_seq.remove(fico)
-        USERS[user][phase] = att_seq
+        session[user][phase] = att_seq
 
     # print(fico)
 
@@ -196,6 +210,23 @@ def write_file(data, filename):
 
     with open(filename, 'wb+') as file:
         file.write(data)
+
+
+def load_file(new_image_id):
+    """
+    Copy image from resized images folder to user folder and rename it
+    :return:
+    """
+    src_dir = os.getcwd()
+    dest_dir = src_dir + "/subfolder"
+    src_file = os.path.join(src_dir, 'test.txt.copy2')
+    shutil.copy(src_file, dest_dir)  # copy the file to destination dir
+
+    dst_file = os.path.join(dest_dir, 'test.txt.copy2')
+    new_dst_file_name = os.path.join(dest_dir, 'test.txt.copy3')
+
+    os.rename(dst_file, new_dst_file_name)  # rename
+    os.chdir(dest_dir)
 
 
 @app.route('/api/getimage', methods=['GET'])
@@ -240,7 +271,7 @@ def runmodel():
     treat = str(request.args.get('treat', "T1"))
 
     data = pd.read_csv('game_face_data_'+treat+'.csv')
-    data['User_choice'] = USERS[user]['user_choice']
+    data['User_choice'] = session[user]['user_choice']
 
     # testing
     # test = {"Poor": '1', "Fair": '1', "Good": '3', "Very Good": '5', "Exceptional": '5'}
@@ -250,10 +281,10 @@ def runmodel():
 
     mod = ModelRun(dataset_csv=data)
     mod.whole_procedure(user)
-    USERS[user]['train_rmse'] = mod.rf_rmse
+    session[user]['train_rmse'] = mod.rf_rmse
 
     pred = ModelRun(pd.read_csv('game_face_data_C.csv'))
-    USERS[user]['recommendations'] = pred.rec(user)
+    session[user]['recommendations'] = pred.rec(user)
 
     return treat
 
@@ -267,7 +298,7 @@ def getreco():
     image_id = int(request.args.get('image_id'))
     user_id = str(request.args.get('user_id'))
 
-    result = USERS[user_id]['recommendations'][image_id]
+    result = session[user_id]['recommendations'][image_id]
 
     if 0 <= result <= 1.5:
         result = 1
@@ -280,7 +311,7 @@ def getreco():
     elif 4.5 < result <= 5.5:
         result = 5
 
-    USERS[user_id]['reco_actual'][image_id] = result
+    session[user_id]['reco_actual'][image_id] = result
 
     return str(result)
 
