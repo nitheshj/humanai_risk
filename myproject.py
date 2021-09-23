@@ -25,11 +25,9 @@ import shutil
 
 PATH = os.path.join(os.path.abspath('..'), 'Tier1/client/')
 SESSION_TYPE = 'filesystem'
-SESSION_PERMANENT = False  # Session cookie will expire when browser is closed
 app = Flask(__name__, static_url_path="", static_folder=PATH)
 app.secret_key = 'human_ai'
 app.config.from_object(__name__)
-
 CORS(app, resources={r"/*": {"origins": "https://studycrafter.com"}}, supports_credentials=True,
      allow_headers=["Content-Type", "Origin", "X-Requested-With", "Accept", "x-auth"])
 Session(app)
@@ -219,7 +217,7 @@ def load_file(new_image_id):
     """
     src_dir = os.getcwd()
     dest_dir = src_dir + "/subfolder"
-    src_file = os.path.join(src_dir, 'test.txt.copy2')
+    src_file = os.path.join(src_dir, new_image_id)
     shutil.copy(src_file, dest_dir)  # copy the file to destination dir
 
     dst_file = os.path.join(dest_dir, 'test.txt.copy2')
