@@ -23,7 +23,7 @@ from ml_model import ModelRun
 # import pickle
 import shutil
 
-PATH = os.path.join(os.path.abspath('..'), 'Tier1/client/')
+PATH = os.path.join(os.path.abspath('..'), 'Tier1')
 SESSION_TYPE = 'filesystem'
 app = Flask(__name__, static_url_path="", static_folder=PATH)
 app.secret_key = 'human_ai'
@@ -40,7 +40,7 @@ config.read('config.ini', encoding='utf-8-sig')
 @app.after_request
 def after_request(response):
    """ after_request """
-   response.headers.add('Access-Control-Allow-Origin','https://studycrafter.com')
+   response.headers.add('Access-Control-Allow-Origin','*')
    response.headers.add('Access-Control-Allow-Credentials', 'true')
    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
@@ -210,22 +210,30 @@ def write_file(data, filename):
         file.write(data)
 
 
-def load_file(new_image_id):
+def load_file(new_image_id,userid):
     """
     Copy image from resized images folder to user folder and rename it
     :return:
     """
-    src_dir = os.getcwd()
-    dest_dir = src_dir + "/subfolder"
-    src_file = os.path.join(src_dir, new_image_id)
+    src_dir = os.path.join(PATH, "Resized")
+    src_file = os.path.join(src_dir, new_image_id + '.png')
+
+    mid_dir = os.path.join(PATH, "client")
+    dest_dir = os.path.join(mid_dir, str(userid))
+
+    os.makedirs(dest_dir, exist_ok=True)
+
     shutil.copy(src_file, dest_dir)  # copy the file to destination dir
 
-    dst_file = os.path.join(dest_dir, 'test.txt.copy2')
-    new_dst_file_name = os.path.join(dest_dir, 'test.txt.copy3')
+    if os.path.exists(os.path.join(dest_dir, 'init.png')):
+        os.remove(os.path.join(dest_dir, 'init.png'))
+
+    dst_file = os.path.join(dest_dir, new_image_id + '.png')
+    new_dst_file_name = os.path.join(dest_dir, 'init.png')
 
     os.rename(dst_file, new_dst_file_name)  # rename
-    os.chdir(dest_dir)
-
+    # os.chdir(dest_dir)
+    return None
 
 @app.route('/api/getimage', methods=['GET'])
 def getimage():
@@ -245,18 +253,19 @@ def getimage():
     db = Database(config)
 
     # T1 =199, T2 = 202, C = 196
-    results = db.query_database("""SELECT images.image, test.Credit_rating FROM images INNER JOIN test ON images.Target = test.Target 
+    results = db.query_database("""SELECT images.Target, test.Credit_rating FROM images INNER JOIN test ON images.Target = test.Target 
                                     WHERE TreatID = %s AND Treatment = %s""", (image_id, treatment,))
 
-    name_image = 'init.png'
-    write_file(results[0], os.path.join(PATH + user_id + "/", name_image))
+    # name_image = 'init.png'
+    # write_file(results[0], os.path.join(PATH + user_id + "/", name_image))
+    load_file(results[0],user_id)
 
     return str(results[1])
 
 
 @app.route('/client/<user_id>/<filename>')
 def send_image(user_id, filename):
-    return send_from_directory(os.path.join(app.static_folder + "/" + user_id), filename)
+    return send_from_directory(os.path.join(app.static_folder + "/client/" + user_id), filename)
 
 
 @app.route('/api/runmodel', methods=['GET'])
