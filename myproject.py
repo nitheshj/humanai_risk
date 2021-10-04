@@ -23,7 +23,7 @@ from ml_model import ModelRun
 # import pickle
 import shutil
 
-PATH = os.path.join(os.path.abspath('..'), 'Tier1')
+PATH = os.path.join(os.path.abspath('..'), 'myproject')
 SESSION_TYPE = 'filesystem'
 app = Flask(__name__, static_url_path="", static_folder=PATH)
 app.secret_key = 'human_ai'
@@ -40,11 +40,13 @@ config.read('config.ini', encoding='utf-8-sig')
 @app.after_request
 def after_request(response):
    """ after_request """
-   response.headers.add('Access-Control-Allow-Origin','*')
-   response.headers.add('Access-Control-Allow-Credentials', 'true')
-   response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-   response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
-   response.headers.add('Set-Cookie', 'session={}; Expires={}; SameSite=None; Secure; HttpOnly; Path=/'.format(session.sid, datetime.now()+timedelta(days=1)))
+   white = ['https://studycrafter.com', 'https://tiago-lam.github.io/']
+   if request.environ.get('HTTP_ORIGIN','None') in white:
+       response.headers.add('Access-Control-Allow-Origin', request.environ['HTTP_ORIGIN'])
+       response.headers.add('Access-Control-Allow-Credentials', 'true')
+       response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+       response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+       response.headers.add('Set-Cookie', 'session={}; Expires={}; SameSite=None; Secure; HttpOnly; Path=/'.format(session.sid, datetime.now()+timedelta(days=1)))
 
    return response
 
@@ -69,6 +71,7 @@ def start():
     session[user]['two'] = random.sample(range(1, treatment['C'] + 1), 54)
     session[user]['user_choice_2'] = dict()
     session[user]['reco_actual'] = dict()
+    session[user]['user_data'] = list()
 
     return user
 
@@ -96,15 +99,21 @@ def out():
 
     db = Database(config)
 
-    db.store_data("""INSERT INTO chicagofaces.player_model(user, train_rmse,test_actual_rmse,test_ideal_rmse)
+    db.store_data_many("""INSERT INTO chicagofaces.player_decisions(datetime, user, treatment, phase, image_id, choice, reactiontime,reco)
+                            VALUES (%s,%s, %s,%s,%s,%s,%s,%s);""",
+                  session[user]['user_data'])
+
+    db2 = Database(config)
+
+    db2.store_data("""INSERT INTO chicagofaces.player_model(user, train_rmse,test_actual_rmse,test_ideal_rmse)
                             VALUES (%s,%s,%s,%s);""",
                   (user, train_rmse, test_actual_rmse, test_ideal_rmse,))
 
-    item = session.pop(user, "User Don't exist")
+    # item = session.pop(user, "User Don't exist")
 
-    item = "User Popped" if isinstance(item, dict) else item
+    # item = "User Popped" if isinstance(item, dict) else item
 
-    return item
+    return user
 
 
 @app.route('/api/storechoice', methods=['GET'])
@@ -117,21 +126,33 @@ def storechoice():
     phase = str(request.args.get('phase'))
     user = str(request.args.get('user_id'))
     user_choice = int(request.args.get("choice"))
-    treat = str(request.args.get("treat"))
-    react_time = int(request.args.get("time"))
-    recommendation = str(request.args.get("rec"))
-    timenow = datetime.now()
+    # treat = str(request.args.get("treat"))
+    # react_time = int(request.args.get("time"))
+    # recommendation = str(request.args.get("rec"))
+    # timenow = datetime.now()
 
     if phase == 'one':
         session[user]['user_choice'][image_id - 1] = user_choice
     elif phase == 'two':
         session[user]['user_choice_2'][image_id] = user_choice
 
-    db = Database(config)
+    record = tuple()
+    record += (datetime.now(),)
+    record += (user,)
+    record += (str(request.args.get("treat")),)
+    record += (phase,)
+    record += (image_id,)
+    record += (user_choice,)
+    record += (str(request.args.get("rec")),)
+    record += (int(request.args.get("time")),)
 
-    db.store_data("""INSERT INTO chicagofaces.player_decisions(datetime, user, treatment, phase, image_id, choice, reactiontime,reco)
-                        VALUES (%s,%s, %s,%s,%s,%s,%s,%s);""",
-                        (timenow, user, treat, phase, image_id, user_choice, react_time, recommendation,))
+    session[user]['user_data'].append(record)
+
+    # db = Database(config)
+    #
+    # db.store_data("""INSERT INTO chicagofaces.player_decisions(datetime, user, treatment, phase, image_id, choice, reactiontime,reco)
+    #                     VALUES (%s,%s, %s,%s,%s,%s,%s,%s);""",
+    #                     (timenow, user, treat, phase, image_id, user_choice, react_time, recommendation,))
 
     return phase
 
@@ -234,6 +255,7 @@ def load_file(new_image_id,userid):
     os.rename(dst_file, new_dst_file_name)  # rename
     # os.chdir(dest_dir)
     return None
+
 
 @app.route('/api/getimage', methods=['GET'])
 def getimage():

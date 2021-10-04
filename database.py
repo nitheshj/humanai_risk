@@ -88,3 +88,16 @@ class Database(object):
 
         return values
 
+    def store_data_many(self, query, values):
+        """ stores game data into the database """
+
+        query = (str(query))
+        self.cur.executemany(query, values)
+
+        self.cnx.commit()
+
+        self.cur.close()
+        self.cnx.close()
+
+        return values
+
