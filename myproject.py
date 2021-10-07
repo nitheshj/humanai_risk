@@ -11,9 +11,10 @@ import uuid
 import pandas as pd
 # import numpy as np
 from flask import Flask, request, send_from_directory, session
+from flask_sqlalchemy import SQLAlchemy
 from flask_session import Session
 from sklearn.metrics import mean_squared_error
-from database import Database
+from database import Database, DatabaseAlchemy
 import configparser
 # import math
 import random
@@ -23,19 +24,30 @@ from ml_model import ModelRun
 # import pickle
 import shutil
 
-PATH = os.path.join(os.path.abspath('..'), 'myproject')
-SESSION_TYPE = 'filesystem'
-app = Flask(__name__, static_url_path="", static_folder=PATH)
-app.secret_key = 'human_ai'
-app.config.from_object(__name__)
-CORS(app, resources={r"/*": {"origins": "https://studycrafter.com"}}, supports_credentials=True,
-     allow_headers=["Content-Type", "Origin", "X-Requested-With", "Accept", "x-auth"])
-Session(app)
-
 config = configparser.ConfigParser()
 config.read('config.ini', encoding='utf-8-sig')
 
-# session = dict()
+PATH = os.path.join(os.path.abspath('..'), 'myproject')
+
+app = Flask(__name__, static_url_path="", static_folder=PATH)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+SESSION_TYPE = 'sqlalchemy'
+app.permanent_session_lifetime = timedelta(days=1)
+app.secret_key = 'human_ai'
+app.config.from_object(__name__)
+
+CORS(app, resources={r"/*": {"origins": "https://studycrafter.com"}}, supports_credentials=True,
+     allow_headers=["Content-Type", "Origin", "X-Requested-With", "Accept", "x-auth"])
+
+db_alchemy = DatabaseAlchemy(config, app)
+app.config['SQLALCHEMY_DATABASE_URI'] = db_alchemy.uri
+app.config['SESSION_SQLALCHEMY'] = db_alchemy.db
+Session(app)
+
+# only to create initial sessions table
+# db_alchemy.create_session_table()
+
 
 @app.after_request
 def after_request(response):
@@ -136,6 +148,7 @@ def storechoice():
     elif phase == 'two':
         session[user]['user_choice_2'][image_id] = user_choice
 
+    #ToDo-generate tuple in a single row
     record = tuple()
     record += (datetime.now(),)
     record += (user,)

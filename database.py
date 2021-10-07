@@ -1,5 +1,6 @@
 import mysql.connector
 import sshtunnel
+from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import time
 
@@ -100,4 +101,44 @@ class Database(object):
         self.cnx.close()
 
         return values
+
+
+class DatabaseAlchemy(object):
+    def __init__(self, config, app):
+
+        # # IF Session Table is on StudyCrafter database:
+        # host = config['database']['hostname']
+        # user = config['database']['username']
+        # password = config['database']['password']
+        # database = config['database']['dbname']
+        #
+        # ssh_host = config['ssh']['host']
+        # ssh_port = config['ssh']['port']
+        # ssh_user = config['ssh']['user']
+        # ssh_pass = config['ssh']['pass']
+        #
+        # tunnel = sshtunnel.SSHTunnelForwarder((ssh_host, int(ssh_port)), ssh_username=ssh_user, ssh_password=ssh_pass,
+        #                                       remote_bind_address=(host, 3306))
+        # tunnel.start()
+        # app.config['SESSION_SQLALCHEMY_TABLE'] = 'sc_humanai_sessions'
+        # self.uri = f'mysql+pymysql://{user}:{password}@127.0.0.1:{tunnel.local_bind_port}/{database}'
+        # self.db = SQLAlchemy(app, session_options={
+        #     'expire_on_commit': False
+        # })
+
+        # IF Session Table is on DigitalOcean database:
+        host = config['do_database']['hostname']
+        user = config['do_database']['username']
+        password = config['do_database']['password']
+        database = config['do_database']['dbname']
+        port = config['do_database']['port']
+
+        app.config['SESSION_SQLALCHEMY_TABLE'] = 'humanai_sessions'
+        self.uri = f'mysql+pymysql://{user}:{password}@{host}:{port}/{database}'
+        self.db = SQLAlchemy(app, session_options={
+            'expire_on_commit': False
+        })
+
+    def create_session_table(self):
+        self.db.create_all()
 
