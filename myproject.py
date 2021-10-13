@@ -88,6 +88,26 @@ def start():
     return user
 
 
+@app.route('/info', methods=['GET'])
+def info():
+    """
+
+    :return:
+    """
+    user = str(request.args.get('user_id'))
+    prol_id = str(request.args.get('pro_id'))
+    study = str(request.args.get('study'))
+    timenow = datetime.now()
+
+    db = Database(config)
+
+    db.store_data("""INSERT INTO chicagofaces.participants(user_id, study, date_time ,prolific_id)
+                               VALUES (%s,%s,%s,%s);""",
+                   (user, study, timenow, prol_id,))
+
+    return user
+
+
 def compute_rmse(first_dict:dict,second_dict:dict):
     first_list = list()
     second_list = list()
@@ -111,7 +131,7 @@ def out():
 
     db = Database(config)
 
-    db.store_data_many("""INSERT INTO chicagofaces.player_decisions(datetime, user, treatment, phase, image_id, choice, reactiontime,reco)
+    db.store_data_many("""INSERT INTO chicagofaces.player_decisions(datetime, user, treatment, phase, image_id, choice, reco, reactiontime)
                             VALUES (%s,%s, %s,%s,%s,%s,%s,%s);""",
                   session[user]['user_data'])
 
@@ -148,17 +168,18 @@ def storechoice():
     elif phase == 'two':
         session[user]['user_choice_2'][image_id] = user_choice
 
-    #ToDo-generate tuple in a single row
-    record = tuple()
-    record += (datetime.now(),)
-    record += (user,)
-    record += (str(request.args.get("treat")),)
-    record += (phase,)
-    record += (image_id,)
-    record += (user_choice,)
-    record += (str(request.args.get("rec")),)
-    record += (int(request.args.get("time")),)
+    # Generate tuple in a single row - Done
+    # record = tuple()
+    # record += (datetime.now(),)
+    # record += (user,)
+    # record += (str(request.args.get("treat")),)
+    # record += (phase,)
+    # record += (image_id,)
+    # record += (user_choice,)
+    # record += (str(request.args.get("rec")),)
+    # record += (int(request.args.get("time")),)
 
+    record = (datetime.now(), user, str(request.args.get("treat")), phase, image_id, user_choice, str(request.args.get("rec")), int(request.args.get("time")) )
     session[user]['user_data'].append(record)
 
     # db = Database(config)
