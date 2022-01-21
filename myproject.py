@@ -98,12 +98,13 @@ def info():
     prol_id = str(request.args.get('pro_id'))
     study = str(request.args.get('study'))
     timenow = datetime.now()
+    cond = str(request.args.get('cond'))
 
     db = Database(config)
 
-    db.store_data("""INSERT INTO chicagofaces.participants(user_id, study, date_time ,prolific_id)
-                               VALUES (%s,%s,%s,%s);""",
-                   (user, study, timenow, prol_id,))
+    db.store_data("""INSERT INTO chicagofaces.participants(user_id, study, date_time ,prolific_id,`condition`)
+                               VALUES (%s,%s,%s,%s,%s);""",
+                   (user, study, timenow, prol_id,cond,))
 
     return user
 
@@ -125,8 +126,10 @@ def compute_rmse(first_dict:dict,second_dict:dict):
 def out():
     user = str(request.args.get('user_id'))
 
-    test_ideal_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['recommendations']))
-    test_actual_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['reco_actual']))
+    # test_ideal_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['recommendations']))
+    # test_actual_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['reco_actual']))
+    test_ideal_rmse = 0.0
+    test_actual_rmse = 0.0
     train_rmse = float(session[user]['train_rmse'])
 
     db = Database(config)

@@ -25,7 +25,7 @@ def compute_attention(sequence):
                 if each["name"] == "Choice_att":
                     att_choices[keyname] = each["value"]
 
-    att_values = {"570": "5", "539": "5", "617": "4", "653": "4", "684": "3", "725": "3", "749": "2", "771": "2", "806": "1", "812": "1"}
+    att_values = {"570": "1", "539": "1", "617": "2", "653": "2", "684": "3", "725": "3", "749": "4", "771": "4", "806": "5", "812": "5"}
 
     score = 0
     for each in att_choices.keys():
@@ -110,10 +110,10 @@ def extracting_main(connection, destination, group):
     #                                             where project_id = %s""", (ids[group],))
 
     result = connection.query_database_all("""select json,end_time from studycrafter_wp_db.sc_analytics 
-                                            where project_id = %s or project_id = %s or project_id = %s""", (1435, 1438, 1439, ))
+                                            where project_id = %s""", (1766, ))
 
     # data_out = 'gamedata_test_'+ group +'.csv'  # sys.argv[2]
-    data_out = 'user_test_all' + '.csv'  # sys.argv[2]
+    data_out = 'user_test_all_S2P' + '.csv'  # sys.argv[2]
     count = 0
 
     with open(data_out, 'w', newline='', encoding="utf-8") as destname:
