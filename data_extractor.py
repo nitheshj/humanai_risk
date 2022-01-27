@@ -2,9 +2,10 @@ import configparser
 import csv
 import json
 import sys
+import re
 from collections import OrderedDict
 from database import Database
-
+import pandas as pd
 
 def compute_attention(sequence):
     """
@@ -98,7 +99,21 @@ def sequence_parser(sequen):
     return choice_seq
 
 
-def extracting_main(connection, destination, group):
+def clean_up_string(text_object):
+    """
+    This fucntions cleans the INTERNAL SERVER 500 errors received from the server
+    :param text_object: json string obtained from the database
+    :return:
+    """
+    locations =  [m.start() for m in re.finditer("<!", text_object)]
+
+    for i, each in enumerate(locations):
+        text_object = text_object[:each-(i*294)] + text_object[each-(i*294)+294:]
+
+    return text_object
+
+
+def extracting_main(connection, destination, file_name, project_id):
     """
 
     :return:
@@ -110,16 +125,16 @@ def extracting_main(connection, destination, group):
     #                                             where project_id = %s""", (ids[group],))
 
     result = connection.query_database_all("""select json,end_time from studycrafter_wp_db.sc_analytics 
-                                            where project_id = %s""", (1766, ))
+                                            where project_id = %s""", (project_id, ))
 
-    # data_out = 'gamedata_test_'+ group +'.csv'  # sys.argv[2]
-    data_out = 'user_test_all_S2P' + '.csv'  # sys.argv[2]
+    data_out = file_name  # sys.argv[2]
     count = 0
 
     with open(data_out, 'w', newline='', encoding="utf-8") as destname:
 
         # var_fields = list("Face_" + str(number) for number in range(1, groups[group]+1))
-        var_fields = extract_fieldnames(result[-1][0])
+        new_string = clean_up_string(result[-1][0])
+        var_fields = extract_fieldnames(new_string)
         var_fields.insert(1, "time")
         # var_fields.insert(0,"user")
         var_fields.insert(2, "attention_score")
@@ -130,7 +145,8 @@ def extracting_main(connection, destination, group):
         for row in result:
             try:
                 count += 1
-                sequence = json.loads(row[0], object_pairs_hook=OrderedDict)
+                row_text = clean_up_string(row[0])
+                sequence = json.loads(row_text, object_pairs_hook=OrderedDict)
                 # formatted_row = sequence_parser(sequence)
                 formatted_row = extract_user_vars(sequence)
                 formatted_row["time"] = float(row[1])
@@ -141,6 +157,7 @@ def extracting_main(connection, destination, group):
                 # z = len(row[0])
                 # adj_row = row[0].replace(repr("""<!DOCTYPE HTML PUBLIC "- //W3C//DTD HTML 3.2 Final//EN">\n<title>500 Internal Server Error</title>\n<h1>Internal Server Error</h1>\n<p>The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.</p>\n"""),"")
                 try:
+                    print("failed first attempt")
                     x = row[0].find("<")
                     # w = len("""<!DOCTYPE HTML PUBLIC "- //W3C//DTD HTML 3.2 Final//EN">\n<title>500 Internal Server Error</title>\n<h1>Internal Server Error</h1>\n<p>The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.</p>\n""")
                     adj_row = row[0][:x] + row[0][x+291:]
@@ -155,6 +172,31 @@ def extracting_main(connection, destination, group):
                 except json.decoder.JSONDecodeError:
                     print("skipped row:", count)
 
+        print ("Extraction of user demographics from database JSON files completed!")
+
+
+def combine_data(decision_data_file, demographics_data_file, final_output_file):
+    """
+    Combines the csv files with participant decisions (external) and  participant demographics (from previous step)
+    :param decision_data_file:
+    :param demographics_data_file:
+    :param final_output_file:
+    :return:
+    """
+
+    face_data = pd.read_csv(decision_data_file)
+
+    user_data = pd.read_csv(demographics_data_file)
+
+    user_data = user_data[['user_id','time','study_id','Q15','Q16','Q17','Q18','Q19','Q_open_exp']]
+    user_data.rename(columns={'user_id':'user','Q15': 'P_Age', 'Q16': 'P_Gender','Q17': 'P_Intl_student','Q18': 'P_Race','Q19': 'P_Income'}, inplace=True)
+
+    new = pd.merge(face_data, user_data, how='left', on=['user'])
+
+    new.to_csv(final_output_file, encoding='utf-8')
+
+    print("combined data files!")
+
 
 if __name__ == "__main__":
 
@@ -163,6 +205,12 @@ if __name__ == "__main__":
 
     db_connection = Database(config)
 
-    folder = 'DataAnalyis/'
-    treatment = str(sys.argv[1])
-    extracting_main(db_connection, folder, treatment)
+    folder = 'C:/Users/Nithesh/Google Drive/Tier1/DataAnalysis/'
+    demo_file = folder + 'Study_2_Main_userdata.csv'
+    dec_file = folder + 'Study_2_Main_raw_data.csv'
+    output = folder + 'Study_2_Main_fulldata.csv'
+    sc_project_id = 1882 #1882-S2V5,1960-admissionss1v1
+
+    extracting_main(db_connection, folder, demo_file, sc_project_id)
+
+    combine_data(dec_file,demo_file,output)
