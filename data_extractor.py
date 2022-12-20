@@ -209,7 +209,7 @@ if __name__ == "__main__":
     demo_file = folder + 'Study_2_Main_userdata.csv'
     dec_file = folder + 'Study_2_Main_raw_data.csv'
     output = folder + 'Study_2_Main_fulldata.csv'
-    sc_project_id = 1882 #1882-S2V5,1960-admissionss1v1
+    sc_project_id = 1882 #1882-S2V5, 1960- admissionss1v1
 
     extracting_main(db_connection, folder, demo_file, sc_project_id)
 

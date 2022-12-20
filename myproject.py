@@ -126,11 +126,12 @@ def compute_rmse(first_dict:dict,second_dict:dict):
 def out():
     user = str(request.args.get('user_id'))
 
+    # Uncomment below lines for loan disbursement cases suitably
     # test_ideal_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['recommendations']))
     # test_actual_rmse = float(compute_rmse(session[user]['user_choice_2'], session[user]['reco_actual']))
-    test_ideal_rmse = 0.0
-    test_actual_rmse = 0.0
-    train_rmse = float(session[user]['train_rmse'])
+    # test_ideal_rmse = 0.0
+    # test_actual_rmse = 0.0
+    # train_rmse = float(session[user]['train_rmse'])
 
     db = Database(config)
 
@@ -138,17 +139,17 @@ def out():
                             VALUES (%s,%s, %s,%s,%s,%s,%s,%s);""",
                   session[user]['user_data'])
 
-    db2 = Database(config)
+    # Uncomment below lines for loan disbursement cases suitably
+    # db2 = Database(config)
+    # db2.store_data("""INSERT INTO chicagofaces.player_model(user, train_rmse,test_actual_rmse,test_ideal_rmse)
+    #                         VALUES (%s,%s,%s,%s);""",
+    #               (user, train_rmse, test_actual_rmse, test_ideal_rmse,))
 
-    db2.store_data("""INSERT INTO chicagofaces.player_model(user, train_rmse,test_actual_rmse,test_ideal_rmse)
-                            VALUES (%s,%s,%s,%s);""",
-                  (user, train_rmse, test_actual_rmse, test_ideal_rmse,))
+    item = session.pop(user, "User Don't exist")
 
-    # item = session.pop(user, "User Don't exist")
+    item = "User Popped" if isinstance(item, dict) else item
 
-    # item = "User Popped" if isinstance(item, dict) else item
-
-    return user
+    return item
 
 
 @app.route('/api/storechoice', methods=['GET'])
